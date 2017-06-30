@@ -66,17 +66,18 @@ draw_large_sectors <- function(xmltop, firstOnly = F) {
         M1 <- cbind(x1,y1)
         M1R <- rotate(M1,angle)
         points(M1R[,1], M1R[,2], col="blue", cex = 0.1, pch=19)
-        polygon(M1R[,1],M1R[,2], col=rgb(0, 0, 1, 0.5))
+        polygon(M1R[,1],M1R[,2], col=rgb(0.54, 0.81, 0.94, 0.5)) 
         # Draw sTG1-QS2P
         M2 <- cbind(x2,y2)
         M2R <- rotate(M2,angle)
         points(M2R[,1], M2R[,2], col="green", cex = 0.1, pch=19)
-        polygon(M2R[,1],M2R[,2], col=rgb(0, 1, 0, 0.5))
+        #polygon(M2R[,1],M2R[,2], col=rgb(1, 0.65, 0, 0.5))
+        polygon(M2R[,1],M2R[,2], col=rgb(0.54, 0.81, 0.94, 0.5))
         # Draw sTG1-QS3P
         M3 <- cbind(x3,y3)
         M3R <- rotate(M3,angle)
         points(M3R[,1], M3R[,2], col="red", cex = 0.1, pch=19)
-        polygon(M3R[,1],M3R[,2], col=rgb(1, 0, 0, 0.5))
+        polygon(M3R[,1],M3R[,2], col=rgb(0.54, 0.81, 0.94, 0.5))
     }
 }
 
@@ -122,17 +123,17 @@ draw_small_sectors <- function(xmltop) {
         M1 <- cbind(x1,y1)
         M1R <- rotate(M1,angle)
         points(M1R[,1], M1R[,2], col="blue", cex = 0.1, pch=19)
-        polygon(M1R[,1],M1R[,2], col=rgb(0, 0, 1, 0.5))
+        polygon(M1R[,1],M1R[,2], col=rgb(1, 0.65, 0, 0.5))
         # Draw sTG1-QS2P
         M2 <- cbind(x2,y2)
         M2R <- rotate(M2,angle)
         points(M2R[,1], M2R[,2], col="green", cex = 0.1, pch=19)
-        polygon(M2R[,1],M2R[,2], col=rgb(0, 1, 0, 0.5))
+        polygon(M2R[,1],M2R[,2], col=rgb(0.54, 0.81, 0.94, 0.5))
         # Draw sTG1-QS3P
         M3 <- cbind(x3,y3)
         M3R <- rotate(M3,angle)
         points(M3R[,1], M3R[,2], col="red", cex = 0.1, pch=19)
-        polygon(M3R[,1],M3R[,2], col=rgb(1, 0, 0, 0.5))
+        polygon(M3R[,1],M3R[,2], col=rgb(1, 0.65, 0, 0.5))
     }
 }
 
@@ -207,12 +208,17 @@ draw_pads <- function(xmltop,index,layer=1,col="black") {
     }
 }
 
+get_radius <- function(eta,z) {
+    theta <- 2*atan(exp(-eta))
+    return(z*tan(theta))
+}
+
 if(draw.pads) {
     
     # First plot the canvas
     pdf("LargeSectorPivot_L1_r19.pdf")
     plot(0, 0, xlim = c(-2000,2000), ylim = c(500,5000), type="n",
-         main = "ATLAS NSW Layout (Large Pivot - Layer 3)", xlab = "x [mm]", ylab = "y [mm]")
+         main = "ATLAS NSW Layout (Large Pivot - Layer 1)", xlab = "x [mm]", ylab = "y [mm]")
     grid(nx = 30)
     
     # Plot the large sectors
@@ -228,11 +234,26 @@ if(draw.pads) {
     
     # sTG1-QL2P
     draw_pads(xmltop,19,1)
-    #draw_pads(xmltop,19,3,col="blue")
+    #draw_pads(xmltop,19,3,col="red")
     
     # sTG1-QL3P
     draw_pads(xmltop,21,1)
-    #draw_pads(xmltop,21,3,col="green")
+    #draw_pads(xmltop,21,3,col="red")
+    
+    # Draw eta circles
+    require(plotrix)
+    r.1 <- get_radius(1.45,7474.) # Large Pivot
+    r.2 <- get_radius(1.9,7474.) # Large Pivot
+    r.3 <- get_radius(2.4,7474.) # Large Pivot
+    r.4 <- get_radius(3.0,7474.) # Large Pivot
+    draw.circle(0,0,radius=r.1,border="red")
+    text(x = 1750, y=4350., labels = expression(paste(eta," = 1.45")), col = "red")
+    draw.circle(0,0,radius=r.2,border="red")
+    text(x = 1500, y=2500., labels = expression(paste(eta," = 1.90")), col = "red")
+    draw.circle(0,0,radius=r.3,border="red")
+    text(x = 1050, y=1500., labels = expression(paste(eta," = 2.40")), col = "red")
+    draw.circle(0,0,radius=r.4,border="red")
+    text(x =  750, y= 750., labels = expression(paste(eta," = 3.00")), col = "red")
     
     # Close the device    
     dev.off()   
