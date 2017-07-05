@@ -2,14 +2,29 @@ require(XML)
 # i.e. see http://www.informit.com/articles/article.aspx?p=2215520 for reading XMLs
 
 # Controls
-draw.nsw <- F
-draw.pads <- T
+draw.nsw <- T
+draw.pads <- F
+#nn_glob <- 8   
 
 # Define a rotation matrix to help w/ plotting later on
 rotate <- function(M, angle = pi/16.) {
     rotmatrix <- matrix(c(cos(angle),sin(angle),-sin(angle),cos(angle)),ncol=2)
     M2 <- t(rotmatrix %*% t(M))
     return(M2)
+}
+
+# Cartesian to polar coordinates, note singularities!
+cart2pol <- function(x, y, z) {
+    r     <- sqrt(x**2+y**2+z**2)
+    theta <- atan(y/x)
+    phi   <- atan(sqrt(x**2+y**2)/z)
+    return(list(r=r,theta=theta,phi=phi))
+}
+
+# Get radius for a given eta and z
+get_radius <- function(eta, z) {
+    theta <- 2*atan(exp(-eta))
+    return(z*tan(theta))
 }
 
 # Read in the XML
@@ -25,7 +40,7 @@ xmltop <- xmlRoot(data)
 # Functions that draws the NSW based on the XML input
 
 # Draw pads
-draw_pads <- function(xmltop,index,layer=1,col="black",angle=0.) {
+draw_pads <- function(xmltop, index, layer=1, col="black", angle=0.) {
 
     # index corresponds to a specific module, i.e. sTG1-QL1P etc.
     sWidth      <- as.numeric(xmlGetAttr(xmltop[[3]][[1]][[index]],"sWidth"))
@@ -125,55 +140,8 @@ draw_pads <- function(xmltop,index,layer=1,col="black",angle=0.) {
     }
 }
 
-# Get radius for a given eta and z
-get_radius <- function(eta,z) {
-    theta <- 2*atan(exp(-eta))
-    return(z*tan(theta))
-}
-
-# Main control function for drawing the pads
-if(draw.pads) {
- 
-    # Draw eta lines
-    draw.eta.lines <- F
-       
-    # First plot the canvas
-    pdf("LargeSectorPivot_L1_r19.pdf")
-    plot(0, 0, xlim = c(-2000,2000), ylim = c(500,5000), type="n",
-         main = "ATLAS NSW Layout (Large Pivot - Layer 1)", xlab = "x [mm]", ylab = "y [mm]")
-    grid(nx = 30)
-    # pdf("SmallSectorPivot_L3_r19.pdf")
-    # plot(0, 0, xlim = c(-2000,2000), ylim = c(500,5000), type="n",
-    #      main = "ATLAS NSW Layout (Small Pivot - Layer 3)", xlab = "x [mm]", ylab = "y [mm]")
-    # grid(nx = 30)
-    
-    # Plot the large sectors
-    draw_large_sectors(xmltop,firstOnly = T, with.pads = T)
-    # draw_small_sectors(xmltop,firstOnly = T, with.pads = T, layer = 3)
-    
-    # Draw eta circles
-    if(draw.eta.lines) {
-        require(plotrix)
-        r.1 <- get_radius(1.45,7474.) # w.r.t. Large Pivot
-        r.2 <- get_radius(1.90,7474.) # w.r.t. Large Pivot
-        r.3 <- get_radius(2.40,7474.) # w.r.t. Large Pivot
-        r.4 <- get_radius(3.00,7474.) # w.r.t. Large Pivot
-        draw.circle(0,0,radius=r.1,border="red")
-        text(x = 1750, y=4350., labels = expression(paste(eta," = 1.45")), col = "red")
-        draw.circle(0,0,radius=r.2,border="red")
-        text(x = 1500, y=2500., labels = expression(paste(eta," = 1.90")), col = "red")
-        draw.circle(0,0,radius=r.3,border="red")
-        text(x = 1050, y=1500., labels = expression(paste(eta," = 2.40")), col = "red")
-        draw.circle(0,0,radius=r.4,border="red")
-        text(x =  750, y= 750., labels = expression(paste(eta," = 3.00")), col = "red")
-    }
-        
-    # Close the device    
-    dev.off()   
-}
-
 # Module corners
-get_module_corners <- function(xmltop,idx) {
+get_module_corners <- function(xmltop, idx) {
     # Get the module corners and return
     sWidth  <- as.numeric(xmlGetAttr(xmltop[[3]][[1]][[idx]],"sWidth"))
     lWidth  <- as.numeric(xmlGetAttr(xmltop[[3]][[1]][[idx]],"lWidth"))
@@ -192,25 +160,44 @@ get_module_corners <- function(xmltop,idx) {
     return(list(x=x,y=y))
 }
 
+# Get the z-position
+get_z_position <- function(xmlroot,quad = "LP", layer = 1) {
+    # Get center
+    if("LP" %in% quad)      { module.center <-  as.numeric(xmlGetAttr(xmltop[[2]][[29]],"value")) }
+    else if("LC" %in% quad) { module.center <-  as.numeric(xmlGetAttr(xmltop[[2]][[31]],"value")) }
+    else if("SP" %in% quad) { module.center <-  as.numeric(xmlGetAttr(xmltop[[2]][[25]],"value")) }
+    else if("SC" %in% quad) { module.center <-  as.numeric(xmlGetAttr(xmltop[[2]][[27]],"value")) }
+    else {
+        print("Unknown z position config...")
+        module.center <- -99999
+    }
+    # Get offset
+    offset <- as.numeric(strsplit(xmlGetAttr(xmltop[[2]][[33]],"values"),";")[[1]][[layer]])
+    return(module.center+offset)
+}
+
 # Large sector - pivot
 draw_large_sectors <- function(xmltop, firstOnly = F, with.pads = F, layer = 1) {
     #
     # Large Sectors
     #
-    
+
     # sTG1-QL1P
     corners <- get_module_corners(xmltop,17)
     x1 <- corners$x
     y1 <- corners$y
+    z1 <- get_z_position(xmltop, quad = "LP", layer = layer)
     # sTG1-QL2P
     corners <- get_module_corners(xmltop,19)
     x2 <- corners$x
     y2 <- corners$y
+    z2 <- get_z_position(xmltop, quad = "LP", layer = layer)
     # sTG1-QL3P
     corners <- get_module_corners(xmltop,21)
     x3 <- corners$x
     y3 <- corners$y
-    
+    z3 <- get_z_position(xmltop, quad = "LP", layer = layer)
+
     # Draw
     for(i in seq(1,16,by=2)) {
         if(firstOnly && i>1 ) break
@@ -221,7 +208,8 @@ draw_large_sectors <- function(xmltop, firstOnly = F, with.pads = F, layer = 1) 
         M1 <- cbind(x1,y1)
         M1R <- rotate(M1,angle)
         # points(M1R[,1], M1R[,2], col="blue", cex = 0.1, pch=19)
-        polygon(M1R[,1],M1R[,2], col=rgb(0.54, 0.81, 0.94, 0.5)) 
+        polygon(M1R[,1],M1R[,2], col=rgb(0.54, 0.81, 0.94, 0.5))
+        # polygon(M1R[,1],M1R[,2], col=rainbow(16)[(i-nn_glob*2)%%16]) 
         # Pads
         if(with.pads) {
             draw_pads(xmltop,index=17,layer=layer,col="black",angle=angle)
@@ -232,8 +220,9 @@ draw_large_sectors <- function(xmltop, firstOnly = F, with.pads = F, layer = 1) 
         M2 <- cbind(x2,y2)
         M2R <- rotate(M2,angle)
         # points(M2R[,1], M2R[,2], col="green", cex = 0.1, pch=19)
-        polygon(M2R[,1],M2R[,2], col=rgb(1, 0.65, 0, 0.5))
-        #polygon(M2R[,1],M2R[,2], col=rgb(0.54, 0.81, 0.94, 0.5))
+        polygon(M2R[,1],M2R[,2], col=rgb(1, 0.65, 0, 0.5)) # orange
+        # polygon(M2R[,1],M2R[,2], col=rgb(0.54, 0.81, 0.94, 0.5))
+        # polygon(M2R[,1],M2R[,2], col=rainbow(16)[(i-nn_glob*2)%%16]) 
         # Pads
         if(with.pads) {
             draw_pads(xmltop,index=19,layer=layer,col="black",angle=angle)
@@ -245,6 +234,7 @@ draw_large_sectors <- function(xmltop, firstOnly = F, with.pads = F, layer = 1) 
         M3R <- rotate(M3,angle)
         # points(M3R[,1], M3R[,2], col="red", cex = 0.1, pch=19)
         polygon(M3R[,1],M3R[,2], col=rgb(0.54, 0.81, 0.94, 0.5))
+        # polygon(M3R[,1],M3R[,2], col=rainbow(16)[(i-nn_glob*2)%%16]) 
         # Pads
         if(with.pads) {
             draw_pads(xmltop,index=21,layer=layer,col="black",angle=angle)
@@ -262,15 +252,18 @@ draw_small_sectors <- function(xmltop, firstOnly = F, with.pads = F, layer = 1) 
     corners <- get_module_corners(xmltop,3)
     x1 <- corners$x
     y1 <- corners$y
+    z1 <- get_z_position(xmltop, quad = "SP", layer = layer)
     # Draw sTG1-QS2P
     corners <- get_module_corners(xmltop,5)
     x2 <- corners$x
     y2 <- corners$y
+    z2 <- get_z_position(xmltop, quad = "SP", layer = layer)
     # Draw sTG1-QS3P
     corners <- get_module_corners(xmltop,7)
     x3 <- corners$x
     y3 <- corners$y
-    
+    z3 <- get_z_position(xmltop, quad = "SP", layer = layer)
+
     # Small Sectors
     for(i in seq(1,16,by=2)) {
         if(firstOnly && i>1 ) break
@@ -282,8 +275,9 @@ draw_small_sectors <- function(xmltop, firstOnly = F, with.pads = F, layer = 1) 
         M1 <- cbind(x1,y1)
         M1R <- rotate(M1,angle)
         # points(M1R[,1], M1R[,2], col="blue", cex = 0.1, pch=19)
-        # polygon(M1R[,1],M1R[,2], col=rgb(1, 0.65, 0, 0.5))
-        polygon(M1R[,1],M1R[,2], col=rgb(0.54, 0.81, 0.94, 0.5))
+        polygon(M1R[,1],M1R[,2], col=rgb(1, 0.65, 0, 0.5))
+        # polygon(M1R[,1],M1R[,2], col=rgb(0.54, 0.81, 0.94, 0.5))
+        # polygon(M1R[,1],M1R[,2], col=rainbow(16)[(i+nn_glob*2)%%16]) 
         # Pads
         if(with.pads) {
             draw_pads(xmltop,index=3,layer=layer,col="black",angle=angle)
@@ -294,7 +288,8 @@ draw_small_sectors <- function(xmltop, firstOnly = F, with.pads = F, layer = 1) 
         M2 <- cbind(x2,y2)
         M2R <- rotate(M2,angle)
         # points(M2R[,1], M2R[,2], col="green", cex = 0.1, pch=19)
-        polygon(M2R[,1],M2R[,2], col=rgb(0.54, 0.81, 0.94, 0.5))
+        polygon(M2R[,1],M2R[,2], col=rgb(0.54, 0.81, 0.94, 0.5)) # blue
+        # polygon(M2R[,1],M2R[,2], col=rainbow(16)[(i+nn_glob*2)%%16]) 
         # Pads
         if(with.pads) {
             draw_pads(xmltop,index=5,layer=layer,col="black",angle=angle)
@@ -305,8 +300,9 @@ draw_small_sectors <- function(xmltop, firstOnly = F, with.pads = F, layer = 1) 
         M3 <- cbind(x3,y3)
         M3R <- rotate(M3,angle)
         # points(M3R[,1], M3R[,2], col="red", cex = 0.1, pch=19)
-        # polygon(M3R[,1],M3R[,2], col=rgb(1, 0.65, 0, 0.5))
-        polygon(M3R[,1],M3R[,2], col=rgb(0.54, 0.81, 0.94, 0.5))
+        polygon(M3R[,1],M3R[,2], col=rgb(1, 0.65, 0, 0.5))
+        # polygon(M3R[,1],M3R[,2], col=rgb(0.54, 0.81, 0.94, 0.5))
+        # polygon(M3R[,1],M3R[,2], col=rainbow(16)[(i+nn_glob*2)%%16]) 
         # Pads
         if(with.pads) {
             draw_pads(xmltop,index=7,layer=layer,col="black",angle=angle)
@@ -336,6 +332,48 @@ draw_nsw <- function(xmltop) {
 if(draw.nsw) {
     draw_nsw(xmltop)
 }
+
+# Main control function for drawing the pads
+if(draw.pads) {
+ 
+    # Draw eta lines
+    draw.eta.lines <- F
+       
+    # First plot the canvas
+    pdf("LargeSectorPivot_L1_r19.pdf")
+    plot(0, 0, xlim = c(-2000,2000), ylim = c(500,5000), type="n",
+         main = "ATLAS NSW Layout (Large Pivot - Layer 1)", xlab = "x [mm]", ylab = "y [mm]")
+    grid(nx = 30)
+    # pdf("SmallSectorPivot_L1_r19.pdf")
+    # plot(0, 0, xlim = c(-2000,2000), ylim = c(500,5000), type="n",
+    #      main = "ATLAS NSW Layout (Small Pivot - Layer 1)", xlab = "x [mm]", ylab = "y [mm]")
+    # grid(nx = 30)
+    
+    # Plot the large sectors
+    draw_large_sectors(xmltop,firstOnly = T, with.pads = T)
+    # draw_small_sectors(xmltop,firstOnly = T, with.pads = T)
+    
+    # Draw eta circles
+    if(draw.eta.lines) {
+        require(plotrix)
+        r.1 <- get_radius(1.45,7474.-16.45) # w.r.t. Large Pivot First Layer
+        r.2 <- get_radius(1.90,7474.-16.45) # w.r.t. Large Pivot First Layer
+        r.3 <- get_radius(2.40,7474.-16.45) # w.r.t. Large Pivot First Layer
+        r.4 <- get_radius(3.00,7474.-16.45) # w.r.t. Large Pivot First Layer
+        draw.circle(0,0,radius=r.1,border="red")
+        text(x = 1750, y=4350., labels = expression(paste(eta," = 1.45")), col = "red")
+        draw.circle(0,0,radius=r.2,border="red")
+        text(x = 1500, y=2500., labels = expression(paste(eta," = 1.90")), col = "red")
+        draw.circle(0,0,radius=r.3,border="red")
+        text(x = 1050, y=1500., labels = expression(paste(eta," = 2.40")), col = "red")
+        draw.circle(0,0,radius=r.4,border="red")
+        text(x =  750, y= 750., labels = expression(paste(eta," = 3.00")), col = "red")
+    }
+        
+    # Close the device    
+    dev.off()   
+}
+
 
 # 
 # # i.e. get simple global parameters, their names and values
