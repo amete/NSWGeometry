@@ -15,10 +15,10 @@ rotate <- function(M, angle = pi/16.) {
 
 # Cartesian to polar coordinates, note singularities!
 cart2pol <- function(x, y, z) {
-    r     <- sqrt(x**2+y**2+z**2)
-    theta <- atan(y/x)
-    phi   <- atan(sqrt(x**2+y**2)/z)
-    return(list(r=r,theta=theta,phi=phi))
+    r       <- sqrt(x**2+y**2+z**2)
+    phi     <- atan(y/x)
+    theta   <- atan(sqrt(x**2+y**2)/z)
+    return(list(r=r,phi=phi,theta=theta))
 }
 
 # Get radius for a given eta and z
@@ -316,14 +316,14 @@ draw_nsw <- function(xmltop) {
     # First plot the canvas
     pdf("SingleWheelPivot_r19.pdf")
     plot(0, 0, xlim = c(-5000,5000), ylim = c(-5000,5000), type="n",
-         main = "ATLAS NSW Layout", xlab = "x [mm]", ylab = "y [mm]")
+         main = "ATLAS NSW Layout (Pivot - Layer 1)", xlab = "x [mm]", ylab = "y [mm]")
     grid(nx = 30)
     
     # Plot the large sectors
-    draw_large_sectors(xmltop, with.pads = T) 
+    draw_large_sectors(xmltop, with.pads = F) 
     
     # Plot the small sectors
-    draw_small_sectors(xmltop, with.pads = T) 
+    draw_small_sectors(xmltop, with.pads = F) 
     
     # Close the device    
     dev.off()
